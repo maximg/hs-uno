@@ -5,76 +5,106 @@ data Symbol = Zero | One | Two | Three | Four | Five | Six | Seven | Eight | Nin
               Reverse | Skip | Take2
     deriving (Eq, Enum, Show)
 
-data Color = Red | Green | Blue | Yellow
+data Color = Red | Green | Blue | Yellow | Any
     deriving (Eq, Enum, Show)
 
-data UnoCard = Card Color Symbol | Black | BlackTake4
+type Penalty = Int
+
+data UnoCard = Card Color Symbol | Black Color Penalty
     deriving (Eq, Show)
 
 card c s   = Card c s
-black      = Black
-blackTake4 = BlackTake4
 
 type Deck = [UnoCard]
 type Hand = [UnoCard]
+
+type Direction = Int -- +1 CW, -1 CCW
 
 deck =
     [card c s |
         c <- [Red .. Yellow],
         s <- Zero : [s' | s' <- [One .. Take2], _ <- [1,2]] ]
-    ++ [x | x <- [Black, BlackTake4], _ <- [1..4]]
+    ++ [x | x <- [Black Any 0, Black Any 4], _ <- [1..4]]
 
-data Lead = LeadCard UnoCard | LeadColor Color | LeadPenalty Color Int
+-- outcome of the last player's move
+data Lead = LeadCard UnoCard | LeadColor Color
+    deriving (Eq, Show)
+
+data Move = PlayCard UnoCard | SkipMove p
+    deriving (Eq, Show)
+
+tryPlayCard :: Lead -> UnoCard -> Maybe Move
+
+tryPlayCard (LeadCard Card _ Skip) c@(Card _ Skip) = Just PlayCard c
+tryPlayCard (LeadCard Card _ Skip) _               = Nothing
+
+tryPlayCard (LeadCard Card _ Take2) c@(Card _ Take2) = Just PlayCard c
+tryPlayCard (LeadCard Card _ Take2) _                = Nothing
+
+tryPlayCard _ c@(Black _ _)   = Just PlayCard c
+
+tryPlayCard (LeadCard Card c1 s1) c@(Card c2 s2) | c1 == c2 || s1 == s2 = Just PlayCard c
+                                                 | otherwise = Nothing
+
+-- next rule covers reverse too
+tryPlayCard (LeadColor c1)        c@(Card c2 _)  | c1 == c2 = Just PlayCard c
+                                                 | otherwise = Nothing
+
+tryPlayCard _ _ = Nothing
+
+
+allowedMoves :: Hand -> Lead -> [Move]
+allowedMoves hand lead = [ [x] | x <- hand, tryPlayCard lead x]
+
+
+-- assume the move is allowed
+nextLead :: Lead -> Move -> Lead
+nextLead (LeadCard Card c Skip) (SkipMove _) = LeadColor c
+nextLead (LeadCard Card _ Skip) (PlayCard c@(Card _ Skip)) = LeadCard c
+
+nextLead (LeadCard Card c Take2) (SkipMove _) = LeadColor c
+nextLead (LeadCard Card _ Take2) (PlayCard Card c Take2) = LeadColor c
+
+nextLead _ (PlayCard Black c _) = LeadColor c
+
+nextLead (LeadCard Card _ _) (PlayCard Card c Reverse) = LeadColor c
+
+nextLead (LeadCard Card _ _) (PlayCard c@(Card _ _)) = LeadCard c
+
+-- assume the move is allowed
+nextDirection :: Direction -> Move -> Direction
+nextDirection d (PlayCard card _ Reverse) = -d
+nextDirection d _ = _
+
+-- assume the move is allowed
+nextPenalty :: Int -> Move -> Int
+nextPenalty p (PlayCard Black _ v) = p+v
+nextPenalty p (PlayCard Card _ Take2) = p+2
+nextPenalty p (SkipMove _) = 0
+
+
+nextPlayer n p dir = (p + n + dir) `mod` n
+
+
 
 type Game = [GameState]
 data GameState = GameState { gHands  :: [Hand],
                              gPlayer :: Int,
-                             gDirection :: Int, -- +1 or -1
-                             gLead, -- outcome of last player's move
-                             -- document the move?
-                             -- extract top card separately?
-                             gDeck   :: Deck } -- TODO: model 2 parts of deck and the shuffle
+                             gDirection :: Direction,
+                             gLead   :: Lead,
+                             gPenalty:: Penalty,
+                             gDeck   :: Deck,
+                             gUsed   :: Deck }
     deriving (Eq, Show)
 
 player gs = gHands gs !! gPlayer gs
 
-isWin gs = player gs == []`
-
-pickCard (x:xs) = ([x],xs) -- TODO
--- takeCard
-
-nextPlayer n p dir = (p + n + dir) `mod` n
-
-data Move = Move { mPlayCards :: [UnoCard], -- which cards to play
-                   mTakeCards :: Int,       -- how many cards to take
-                   mColor :: [Color],         -- the color to request for black cards
-                   mDirection :: Int }      -- 1: the same, -1: reverse
-
-isAllowedMove :: UnoCard -> Lead -> Bool
-isAllowedMove (Card _ Skip) (LeadCard UnoCard _ Skip) = true
-isAllowedMove _             (LeadCard UnoCard _ Skip) = false
-isAllowedMove Black      (LeadCard UnoCard _ Take2) = false
-isAllowedMove BlackTake4 (LeadCard UnoCard _ Take2) = false
-isAllowedMove Black      _ = true
-isAllowedMove BlackTake4 _ = true
-isAllowedMove (Card c s) (LeadCard UnoCard c1 s1) = c == c1 || s == s1
-isAllowedMove (Card c _) (LeadColor c1) = c == c1
-isAllowedMove _ _ = false
-
-
-allowedMoves :: Hand -> Lead -> [[UnoCard]]
-allowedMoves hand lead = [ [x] | x <- hand, isAllowedMove x lead]
-
--- almost complete except for the small problem
-getPenalty :: Lead -> Int
-getPenalty (LeadPenalty n) = n
-getPenalty (LeadCard UnoCard _ Take2) = 2 -- problem, we do not accumulate penalty
-getPenalty _ = 0
+isWin = null . player
 
 -- stub, just pick the first possible move
-selectMove :: GameState -> [[UnoCard]] -> Move
-selectMove [x] = Move { mPlayCards = x, mTakeCards = 0, mColor = [], mDirection = 1 }
-selectMove _ = Move { mPlayCards = [], mTakeCards = 1, mColor = [], mDirection = 1 }
+selectMove :: GameState -> [Move] -> Move
+selectMove _ [] = SkipMove 1
+selectMove _ (x:_) = x
 
 -- stub, just select the next player
 applyMove :: GameState -> Move -> GameState
@@ -93,7 +123,9 @@ play gs | isWin gs = [gs]
 -- deal _ _ = tstg1
 -- play n d = [gs | gs <- foldr move tstg1 [1..3], not isWin gs]
 
-tstg1 = GameState [[black],[card Red Zero]] 0 1 Red 0 []
+hand1 = [black]
+nand2 = [card Red Zero]
+tstg1 = GameState [hand1,hand2] 0 1 Red [] []
 
 -- mapping card to card actions
 -- cardAction :: UnoCard -> CardAction
