@@ -1,6 +1,8 @@
 
 module Uno.Game
 ( startGame
+, makeMove
+, Move (..)
 ) where
 
 import Data.Maybe
@@ -70,35 +72,23 @@ nextPenalty (PlayCard (Black _ p))    = (+ p)
 nextPenalty (PlayCard (Card _ Take2)) = (+ 2)
 nextPenalty _ = (* 0)
 
--- a very simple select move strategy - make the first possible move or skip and take
-selectMove :: [Move] -> Move
-selectMove [] = SkipMove 1
-selectMove (x:_) = x
-
 -- TODO: account for penalty
 
 applyMove :: Move -> (Hand, Deck) -> (Hand, Deck)
 applyMove (PlayCard c) (hand, deck) = (delete c hand, deck)
 applyMove (SkipMove n) (hand, deck) = (hand ++ (take n deck), drop n deck)
 
-makeMove :: (Lead, Hand, Penalty, Direction, Deck) -> (Lead, Hand, Penalty, Direction, Deck, Move)
-makeMove (lead, hand, penalty, direction, deck) =
-    let move = selectMove $ allowedMoves hand lead
+makeMove :: (Lead, Hand, Penalty, Direction, Deck, [Move]) -> ([Move] -> Move) -> (Lead, Hand, Penalty, Direction, Deck, [Move])
+makeMove (lead, hand, penalty, direction, deck, moves) selectFn =
+    let move = selectFn $ allowedMoves hand lead
         (hand', deck') = applyMove move (hand, deck)
         lead'      = nextLead      move lead
         penalty'   = nextPenalty   move penalty
         direction' = nextDirection move direction
-    in (lead', hand', penalty', direction', deck', move)
+    in (lead', hand', penalty', direction', deck', move:moves)
 
 startGame :: Deck -> Int -> ([Hand], Lead, Deck, Direction, Penalty, Deck, [Move])
 startGame deck n = let
     hands = take n $ chunksOf 8 deck
     (lead:deck') = drop (n * 8) deck
     in (hands, LeadCard lead, deck', 1, 0, [], [])
-
-makeTurn :: ([Hand], Lead, Deck, Direction, Penalty, Deck, [Move]) -> ([Hand], Lead, Deck, Direction, Penalty, Deck, [Move])
-makeTurn (hand:hands, lead, deck, dir, penalty, used, moves) = let
-    (lead', hand', penalty', dir', deck', move) = makeMove (lead, hand, penalty, dir, deck)
-    hands' | dir' > 0  = hands ++ [hand']
-           | otherwise = (reverse hands) ++ [hand']
-    in (hands', lead', deck', dir', penalty', [], move:moves)

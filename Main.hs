@@ -16,24 +16,38 @@ selectCard cards = do
         else do putStrLn "Invalid choice, try again!"
                 selectCard cards
 
+
+-- a very simple select move strategy - make the first possible move or skip and take
+selectFirstMove :: [Move] -> Move
+selectFirstMove [] = SkipMove 1
+selectFirstMove (x:_) = x
+
+
+-- hack - to avoid explicitly specifying type of playGame for now
 toInt :: Int -> Int
 toInt = id
+
 -- this is the game cycle
-playGame (hand:hands, lead, deck, dir, penalty, used, moves) = do
+playGame (hand1:hand2:[], lead, deck, dir, penalty, used, moves) = do
     putStrLn $ "Top card is " ++ (show lead)
-    playerMove <- selectCard hand
-    putStrLn $ "Player selected " ++ (show playerMove)
+    playerMove <- selectCard hand1
+    putStrLn $ "Player 1 plays " ++ (show playerMove)
     -- check the move
     -- if fails, ask to try again
     -- apply the move
+    let (lead', hand1', penalty', dir', deck', moves') = makeMove (lead, hand1, penalty, dir, deck, moves) (\_ -> PlayCard playerMove)
     -- check for a win
-    -- make move by the computer
-    -- check for a win
-    -- repeat until win
-    let win = True
-    if win
+    if null hand1'
         then return $ toInt 1
-        else playGame (hand:hands, lead, deck, dir, penalty, used, moves)
+        else do
+            -- make the move by the computer
+            putStrLn $ "Top card is " ++ (show lead')
+            let (lead'', hand2', penalty'', dir'', deck'', moves''@(move2:_)) = makeMove (lead', hand2, penalty', dir', deck', moves') selectFirstMove
+            putStrLn $ "Player 2 plays " ++ (show move2)
+            -- check for a win, repeat until a win
+            if null hand2'
+                then return $ toInt 2
+                else playGame (hand1':hand2':[], lead'', deck'', dir'', penalty'', [], moves'')
 
 main = do
     let nPlayers = 2
