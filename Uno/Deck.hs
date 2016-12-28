@@ -9,15 +9,15 @@ module Uno.Deck
 
 data Symbol = Zero | One | Two | Three | Four | Five | Six | Seven | Eight | Nine | 
               Reverse | Skip | Take2
-    deriving (Eq, Enum, Show)
+    deriving (Eq, Enum, Show, Ord)
 
 data Color = Red | Green | Blue | Yellow | Any
-    deriving (Eq, Enum, Show)
+    deriving (Eq, Enum, Show, Ord)
 
 type Penalty = Int
 
 data UnoCard = Card Color Symbol | Black Color Penalty
-    deriving (Eq, Show)
+    deriving (Eq, Show, Ord)
 
 type Deck = [UnoCard]
 

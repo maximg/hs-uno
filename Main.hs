@@ -1,4 +1,7 @@
 
+import Data.List
+import Data.Ord
+import System.Random
 import Uno.Deck as UD
 import Uno.Game
 
@@ -23,12 +26,19 @@ selectFirstMove [] = SkipMove 1
 selectFirstMove (x:_) = x
 
 
+shuffleDeck :: (RandomGen g) => UD.Deck -> g -> UD.Deck
+shuffleDeck deck gen =
+    let deckSize = length(deck)
+        idx = take deckSize $ nub $ randomRs (1,deckSize) gen :: [Int]
+    in map snd $ sortBy (comparing fst) $ zip idx deck
+
 -- hack - to avoid explicitly specifying type of playGame for now
 toInt :: Int -> Int
 toInt = id
 
 -- this is the game cycle
 playGame (hand1:hand2:[], lead, deck, dir, penalty, used, moves) = do
+    putStrLn $ unwords $ replicate 30 "-"
     putStrLn $ "Top card is " ++ (show lead)
     playerMove <- selectCard hand1
     putStrLn $ "Player 1 plays " ++ (show playerMove)
@@ -52,5 +62,6 @@ playGame (hand1:hand2:[], lead, deck, dir, penalty, used, moves) = do
 main = do
     let nPlayers = 2
     putStrLn $ "Starting an Uno game with " ++ (show nPlayers) ++ " players"
-    winner <- playGame $ startGame UD.deck nPlayers
-    putStrLn $ "The winner is player " ++ (show winner)  
+    gen <- getStdGen
+    winner <- playGame $ startGame (shuffleDeck UD.deck gen) nPlayers
+    putStrLn $ "Player " ++ (show winner) ++ " wins!"
