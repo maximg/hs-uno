@@ -1,8 +1,13 @@
 
 module Uno.Game
 ( startGame
+, allowedMoves
 , makeMove
 , Move (..)
+, Lead (..)
+, Hand
+, Direction
+, Penalty
 ) where
 
 import Data.Maybe
@@ -56,7 +61,7 @@ nextLead' _ (PlayCard (Black c _)) = LeadColor c
 nextLead' (LeadCard (Card c Reverse)) (SkipMove _) = LeadColor c
 nextLead' (LeadCard (Card _ _)) (PlayCard (Card c Reverse)) = LeadColor c
 
-nextLead' (LeadCard (Card _ _)) (PlayCard c) = LeadCard c
+nextLead' _ (PlayCard c) = LeadCard c
 
 nextLead' lead (SkipMove _) = lead
 
@@ -78,17 +83,17 @@ applyMove :: Move -> (Hand, Deck) -> (Hand, Deck)
 applyMove (PlayCard c) (hand, deck) = (delete c hand, deck)
 applyMove (SkipMove n) (hand, deck) = (hand ++ (take n deck), drop n deck)
 
-makeMove :: (Lead, Hand, Penalty, Direction, Deck, [Move]) -> ([Move] -> Move) -> (Lead, Hand, Penalty, Direction, Deck, [Move])
-makeMove (lead, hand, penalty, direction, deck, moves) selectFn =
-    let move = selectFn $ allowedMoves hand lead
-        (hand', deck') = applyMove move (hand, deck)
+makeMove :: (Hand, Lead, Direction, Penalty, Deck, Deck, [Move]) -> Move -> (Hand, Lead, Direction, Penalty, Deck, Deck, [Move])
+makeMove (hand, lead, direction, penalty, deck, used, moves) move =
+    let (hand', deck') = applyMove move (hand, deck)
         lead'      = nextLead      move lead
         penalty'   = nextPenalty   move penalty
         direction' = nextDirection move direction
-    in (lead', hand', penalty', direction', deck', move:moves)
+        used'      = used
+    in (hand', lead', direction', penalty', deck', used', move:moves)
 
-startGame :: Deck -> Int -> ([Hand], Lead, Deck, Direction, Penalty, Deck, [Move])
+startGame :: Deck -> Int -> ([Hand], Lead, Direction, Penalty, Deck, Deck, [Move])
 startGame deck n = let
     hands = take n $ chunksOf 8 deck
     (lead:deck') = drop (n * 8) deck
-    in (hands, LeadCard lead, deck', 1, 0, [], [])
+    in (hands, LeadCard lead, 1, 0, deck', [], [])
