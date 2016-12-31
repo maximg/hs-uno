@@ -1,3 +1,4 @@
+{-# LANGUAGE NamedFieldPuns #-}
 
 module Uno.Game
 ( startGame
@@ -8,6 +9,8 @@ module Uno.Game
 , Hand
 , Direction
 , Penalty
+, Player (..)
+, GameState (..)
 ) where
 
 import Data.Maybe
@@ -83,17 +86,35 @@ applyMove :: Move -> (Hand, Deck) -> (Hand, Deck)
 applyMove (PlayCard c) (hand, deck) = (delete c hand, deck)
 applyMove (SkipMove n) (hand, deck) = (hand ++ (take n deck), drop n deck)
 
-makeMove :: (Hand, Lead, Direction, Penalty, Deck, Deck, [Move]) -> Move -> (Hand, Lead, Direction, Penalty, Deck, Deck, [Move])
-makeMove (hand, lead, direction, penalty, deck, used, moves) move =
-    let (hand', deck') = applyMove move (hand, deck)
-        lead'      = nextLead      move lead
-        penalty'   = nextPenalty   move penalty
-        direction' = nextDirection move direction
-        used'      = used
-    in (hand', lead', direction', penalty', deck', used', move:moves)
+data GameState = GameState { gsLead :: Lead
+                           , gsDirection :: Direction
+                           , gsPenalty :: Penalty
+                           , gsDeck :: Deck
+                           , gsUsed :: Deck
+                           , gsMoves :: [Move]
+                           } deriving (Show)
 
-startGame :: Deck -> Int -> ([Hand], Lead, Direction, Penalty, Deck, Deck, [Move])
+makeMove :: (Hand, GameState) -> Move -> (Hand, GameState)
+makeMove (hand, (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMoves})) move =
+    let (hand', deck') = applyMove move (hand, deck)
+        usedCard (PlayCard c) = [c]
+        usedCard _ = []
+    in (hand', GameState { gsLead      = nextLead      move gsLead
+                         , gsPenalty   = nextPenalty   move gsPenalty
+                         , gsDeck      = deck'
+                         , gsDirection = nextDirection move gsDirection
+                         , gsUsed      = (usedCard move) ++ gsUsed
+                         , gsMoves     = move:gsMoves
+                         })
+
+startGame :: Deck -> Int -> ([Hand], GameState)
 startGame deck n = let
     hands = take n $ chunksOf 8 deck
     (lead:deck') = drop (n * 8) deck
-    in (hands, LeadCard lead, 1, 0, deck', [], [])
+    in (hands, GameState (LeadCard lead) 1 0 deck' [lead] [])
+
+
+class Player a where
+    nameOf :: a -> String
+    selectMove :: a -> Lead -> Hand -> IO Move
+

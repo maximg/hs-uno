@@ -4,73 +4,73 @@ import System.Random
 import Uno.Deck as UD
 import Uno.Game
 
-class Player a where
-    nameOf :: a -> String
-    selectMove :: a -> Lead -> Hand -> IO Move
 
-data HumanPlayer = Human String
+-- generic item selector
+selectItem header prompt items validateFx = do
+    putStrLn header
+    let numberedItems = zipWith (\n item -> show n ++ " - " ++ show item) [0..] items
+    putStr $ unlines numberedItems
+    putStrLn prompt
+    numberString <- getLine
+    let number = read numberString
+    if (number < length items) && validateFx(items !! number)
+        then do return $ items !! number
+        else do putStrLn "Invalid choice, try again!"
+                selectItem header prompt items validateFx
 
-instance Player HumanPlayer where
+
+data Human = Human { hName :: String }
+
+instance Player Human where
     selectMove player lead hand = do
         let validateChoice card = (PlayCard card) `elem` (allowedMoves hand lead)
-        putStrLn "Here are your cards:"
-        let numberedHand = zipWith (\n card -> show n ++ " - " ++ show card) [0..] hand
-        putStr $ unlines numberedHand
-        putStrLn "Which one do you want to play?"
-        numberString <- getLine
-        let number = read numberString
-        if (number < length hand) && validateChoice(hand !! number)
-            then do return (PlayCard $ hand !! number)
-            else do putStrLn "Invalid choice, try again!"
-                    selectMove player lead hand
-    nameOf (Human n) = n
+        selectedCard <- selectItem "Here are your cards:" "Which one do you want to play?" hand validateChoice
+        return $ PlayCard selectedCard
+    nameOf player = hName player
 
 
 -- a very simple select move strategy - make the first possible move or skip and take
-data DumbComputerPlayer = DumbComputer String
-instance Player DumbComputerPlayer where
+data DumbComputer = DumbComputer { dcName :: String }
+instance Player DumbComputer where
     selectMove player lead hand = do
         return $ head $ allowedMoves hand lead
-
-    nameOf (DumbComputer n) = n
+    nameOf player = dcName player
 
 
 handlePlayer :: (Player a) => a
-               -> (Hand, Lead, Uno.Game.Direction, Penalty, Deck, Deck, [Move])
-               -> IO (Hand, Lead, Uno.Game.Direction, Penalty, Deck, Deck, [Move])
+               -> Hand
+               -> GameState
+               -> IO (Hand, GameState)
 
-handlePlayer player gs@(hand, lead, _, _, _, _, _) = do
-    putStrLn $ "Top card is " ++ (show lead)
-    playerMove <- selectMove' $ allowedMoves hand lead
-    return $ makeMove gs playerMove
+handlePlayer player hand gs = do
+    putStrLn $ "Top card is " ++ (show (gsLead gs))
+    playerMove <- selectMove' $ allowedMoves hand (gsLead gs)
+    return $ makeMove (hand, gs) playerMove
     where
         selectMove' [] = do
             putStrLn $ "No allowed moves, player " ++ (nameOf player) ++ " skips and takes one"
             return $ SkipMove 1
         selectMove' _ = do
-            playerMove <- selectMove player lead hand
+            playerMove <- selectMove player (gsLead gs) hand
+            -- FIXME: double-check player's choice?
             putStrLn $ "Player " ++ (nameOf player) ++ " plays " ++ (show playerMove)
             return playerMove
 
 
--- hack - to avoid explicitly specifying type of playGame for now
-toInt :: Int -> Int
-toInt = id
-
 -- this is the game cycle
-playGame (hand1:hand2:[], lead, dir, penalty, deck, used, moves) = do
+playGame (hand1:hand2:[], gs) = do
     let player1 = (Human "Maxim")
     let player2 = (DumbComputer "MacBook")
 
     putStrLn $ unwords $ replicate 30 "-"
-    (hand1', lead', dir', penalty', deck', used', moves') <- handlePlayer player1 (hand1, lead, dir, penalty, deck, used, moves)
+    (hand1', gs') <- handlePlayer player1 hand1 gs
     if null hand1'
         then return (nameOf player1)
         else do
-            (hand2', lead'', dir'', penalty'', deck'', used'', moves'') <- handlePlayer player2 (hand2, lead', dir', penalty', deck', used', moves')
+            (hand2', gs'') <- handlePlayer player2 hand2 gs'
             if null hand2'
                 then return (nameOf player2)
-                else playGame (hand1':hand2':[], lead'', dir'', penalty'', deck'', used'', moves'')
+                else playGame (hand1':hand2':[], gs'')
 
 main = do
     let nPlayers = 2
