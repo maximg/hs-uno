@@ -86,16 +86,18 @@ applyMove :: Move -> (Hand, Deck) -> (Hand, Deck)
 applyMove (PlayCard c) (hand, deck) = (delete c hand, deck)
 applyMove (SkipMove n) (hand, deck) = (hand ++ (take n deck), drop n deck)
 
+-- 'a' is a Player
 data GameState = GameState { gsLead :: Lead
                            , gsDirection :: Direction
                            , gsPenalty :: Penalty
                            , gsDeck :: Deck
                            , gsUsed :: Deck
                            , gsMoves :: [Move]
+                           , gsWinner :: Maybe String
                            } deriving (Show)
 
-makeMove :: (Hand, GameState) -> Move -> (Hand, GameState)
-makeMove (hand, (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMoves})) move =
+makeMove :: Player a => a -> (Hand, GameState) -> Move -> (Hand, GameState)
+makeMove player (hand, (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMoves})) move =
     let (hand', deck') = applyMove move (hand, deck)
         usedCard (PlayCard c) = [c]
         usedCard _ = []
@@ -105,13 +107,14 @@ makeMove (hand, (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMov
                          , gsDirection = nextDirection move gsDirection
                          , gsUsed      = (usedCard move) ++ gsUsed
                          , gsMoves     = move:gsMoves
+                         , gsWinner    = if null hand' then Just (nameOf player) else Nothing
                          })
 
 startGame :: Deck -> Int -> ([Hand], GameState)
 startGame deck n = let
     hands = take n $ chunksOf 8 deck
     (lead:deck') = drop (n * 8) deck
-    in (hands, GameState (LeadCard lead) 1 0 deck' [lead] [])
+    in (hands, GameState (LeadCard lead) 1 0 deck' [lead] [] Nothing)
 
 
 class Player a where
