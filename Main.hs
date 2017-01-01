@@ -7,9 +7,9 @@ import Uno.Game
 
 
 -- UI: generic item selector
-selectItem header prompt items validateFx = do
+selectItem header prompt items showItem validateFx = do
     putStrLn header
-    let numberedItems = zipWith (\n item -> show n ++ " - " ++ show item) [0..] items
+    let numberedItems = zipWith (\n item -> show n ++ " - " ++ (showItem item)) [0..] items
     putStr $ unlines numberedItems
     putStrLn prompt
     numberString <- getLine
@@ -17,14 +17,41 @@ selectItem header prompt items validateFx = do
     if (number < length items) && validateFx(items !! number)
         then do return $ items !! number
         else do putStrLn "Invalid choice, try again!"
-                selectItem header prompt items validateFx
+                selectItem header prompt items showItem validateFx
 
+showColor Red    = "R"
+showColor Green  = "G"
+showColor Blue   = "B"
+showColor Yellow = "Y"
+
+showSymbol Zero      = "0 "
+showSymbol One       = "1 "
+showSymbol Two       = "2 "
+showSymbol Three     = "3 "
+showSymbol Four      = "4 "
+showSymbol Five      = "5 "
+showSymbol Six       = "6 "
+showSymbol Seven     = "7 "
+showSymbol Eight     = "8 "
+showSymbol Nine      = "9 "
+showSymbol Reverse   = "r "
+showSymbol Take2     = "+2"
+showSymbol Skip      = "s "
+
+showCard :: UnoCard -> String
+showCard (Card c s) = (showColor c) ++ (showSymbol s)
+
+showLead (LeadCard c) = showCard c
+showLead (LeadColor c) = showColor c
+
+showMove (PlayCard c) = showCard c
+showMove (SkipMove n) = "skips and takes " ++ (show n)
 
 
 human n h = Player n h selectMove where
     selectMove lead hand = do
         let validateChoice card = (PlayCard card) `elem` (allowedMoves hand lead)
-        selectedCard <- selectItem "Here are your cards:" "Which one do you want to play?" hand validateChoice
+        selectedCard <- selectItem "Here are your cards:" "Which one do you want to play?" (sort hand) showCard validateChoice
         return $ PlayCard selectedCard
 
 
@@ -40,7 +67,7 @@ handlePlayer :: Player
 
 -- FIXME: mixes UI and game logic
 handlePlayer player gs = do
-    putStrLn $ "Top card is " ++ (show (gsLead gs))
+    putStrLn $ "Top card is " ++ (showLead (gsLead gs))
     playerMove <- selectMove' $ allowedMoves (plHand player) (gsLead gs)
     return $ makeMove player gs playerMove
     where
@@ -50,12 +77,14 @@ handlePlayer player gs = do
         selectMove' _ = do
             playerMove <- (plSelectMove player) (gsLead gs) (plHand player)
             -- FIXME: double-check player's choice?
-            putStrLn $ "Player " ++ (plName player) ++ " plays " ++ (show playerMove)
+            putStrLn $ "Player " ++ (plName player) ++ " plays " ++ (showMove playerMove)
             return playerMove
 
 
 playGame (player:rest) gs = do
     putStrLn $ unwords $ replicate 30 "-"
+    putStrLn $ (plName player) ++ ": " ++ (unwords $ sort $ map showCard $ plHand player)
+    putStrLn $ "Deck: " ++ (unwords $ take 10 $ map showCard $ gsDeck gs)
     (player',gs') <- handlePlayer player gs
     if null (plHand player') then do return player'
                              else do

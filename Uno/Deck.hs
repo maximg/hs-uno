@@ -34,6 +34,5 @@ deck =
 
 shuffle :: (RandomGen g) => [a] -> g -> [a]
 shuffle deck gen =
-    let deckSize = length(deck)
-        idx = take deckSize $ nub $ randomRs (1,deckSize) gen :: [Int]
+    let idx = take (length(deck)) $ nub $ randomRs (1,length(deck)) gen :: [Int]
     in map snd $ sortBy (comparing fst) $ zip idx deck

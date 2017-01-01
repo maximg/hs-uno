@@ -102,17 +102,17 @@ data GameState = GameState { gsLead :: Lead
 
 makeMove :: Player -> GameState -> Move -> (Player, GameState)
 makeMove player (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMoves}) move =
-    let (hand', deck') = applyMove move (plHand player, deck)
+    let (hand', deck') = applyMove move (plHand player, gsDeck)
         usedCard (PlayCard c) = [c]
         usedCard _ = []
         player' = player { plHand = hand' }
     in (player', GameState { gsLead      = nextLead      move gsLead
-                         , gsPenalty   = nextPenalty   move gsPenalty
-                         , gsDeck      = deck'
-                         , gsDirection = nextDirection move gsDirection
-                         , gsUsed      = (usedCard move) ++ gsUsed
-                         , gsMoves     = move:gsMoves
-                         })
+                           , gsPenalty   = nextPenalty   move gsPenalty
+                           , gsDeck      = deck'
+                           , gsDirection = nextDirection move gsDirection
+                           , gsUsed      = (usedCard move) ++ gsUsed
+                           , gsMoves     = move:gsMoves
+                           })
 
 startGame :: Deck -> Int -> ([Hand], GameState)
 startGame deck n = let
