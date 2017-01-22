@@ -19,6 +19,7 @@ selectItem header prompt items showItem validateFx = do
         else do putStrLn "Invalid choice, try again!"
                 selectItem header prompt items showItem validateFx
 
+-- for now use dedicated functions, later consider redefining 'show'
 showColor Red    = "R"
 showColor Green  = "G"
 showColor Blue   = "B"
@@ -72,17 +73,18 @@ handlePlayer player gs = do
     return $ makeMove player gs playerMove
     where
         selectMove' [] = do
-            putStrLn $ "No allowed moves, player " ++ (plName player) ++ " skips and takes one"
+            putStrLn $ "No allowed moves, " ++ (plName player) ++ " skips and takes one"
             return $ SkipMove 1
         selectMove' _ = do
             playerMove <- (plSelectMove player) (gsLead gs) (plHand player)
             -- FIXME: double-check player's choice?
-            putStrLn $ "Player " ++ (plName player) ++ " plays " ++ (showMove playerMove)
+            putStrLn $ (plName player) ++ " plays " ++ (showMove playerMove)
             return playerMove
 
 
 playGame (player:rest) gs = do
     putStrLn $ unwords $ replicate 30 "-"
+    -- debug
     putStrLn $ (plName player) ++ ": " ++ (unwords $ sort $ map showCard $ plHand player)
     putStrLn $ "Deck: " ++ (unwords $ take 10 $ map showCard $ gsDeck gs)
     (player',gs') <- handlePlayer player gs

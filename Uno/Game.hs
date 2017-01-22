@@ -7,7 +7,6 @@ module Uno.Game
 , Move (..)
 , Lead (..)
 , Hand
-, Direction
 , Penalty
 , Player (..)
 , GameState (..)
@@ -45,8 +44,6 @@ tryPlayCard _ _ = Nothing
 
 type Hand = [UnoCard]
 
-type Direction = Int -- +1 CW, -1 CCW
-
 allowedMoves :: Hand -> Lead -> [Move]
 allowedMoves hand lead = catMaybes $ do
     map (tryPlayCard lead) hand
@@ -71,8 +68,8 @@ nextLead' lead (SkipMove _) = lead
 -- to make args consistent with nextDirection and nextPenalty. refactor later
 nextLead = flip nextLead'
 
-nextDirection :: Move -> Direction -> Direction
-nextDirection (PlayCard (Card _ Reverse)) = (* (-1))
+nextDirection :: Move -> [Player] -> [Player]
+nextDirection (PlayCard (Card _ Reverse)) = reverse
 nextDirection _ = id
 
 nextPenalty :: Move -> Penalty -> Penalty
@@ -93,12 +90,12 @@ data Player = Player { plName :: String
                      }
 
 data GameState = GameState { gsLead :: Lead
-                           , gsDirection :: Direction
+                           , gsDirection :: [Player] -> [Player]
                            , gsPenalty :: Penalty
                            , gsDeck :: Deck
                            , gsUsed :: Deck
                            , gsMoves :: [Move]
-                           } deriving (Show)
+                           }
 
 makeMove :: Player -> GameState -> Move -> (Player, GameState)
 makeMove player (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMoves}) move =
@@ -109,7 +106,7 @@ makeMove player (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMov
     in (player', GameState { gsLead      = nextLead      move gsLead
                            , gsPenalty   = nextPenalty   move gsPenalty
                            , gsDeck      = deck'
-                           , gsDirection = nextDirection move gsDirection
+                           , gsDirection = nextDirection move
                            , gsUsed      = (usedCard move) ++ gsUsed
                            , gsMoves     = move:gsMoves
                            })
@@ -118,4 +115,4 @@ startGame :: Deck -> Int -> ([Hand], GameState)
 startGame deck n = let
     hands = take n $ chunksOf 8 deck
     (lead:deck') = drop (n * 8) deck
-    in (hands, GameState (LeadCard lead) 1 0 deck' [lead] [])
+    in (hands, GameState (LeadCard lead) id 0 deck' [lead] [])
