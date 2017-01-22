@@ -107,12 +107,12 @@ playGameSt (player:rest) = do
 
 
 main = do
-    let nPlayers = 2
-    putStrLn $ "Starting an Uno game with " ++ (show nPlayers) ++ " players"
+    let players = [human "Maxim" [], dumbComputer "MacBook" []]
+    putStrLn $ "Starting an Uno game with " ++ (show $ length players) ++ " players"
     gen <- getStdGen
 
-    let (hand1:hand2:_, startState) = startGame (shuffle UD.deck gen) nPlayers
-    let players = [human "Maxim" hand1, dumbComputer "MacBook" hand2]
+    -- FIXME: use list of players as input to startGame
+    let (players', startState) = startGame (shuffle UD.deck gen) players
 
-    winner <- evalStateT (playGameSt players) startState
+    winner <- evalStateT (playGameSt players') startState
     putStrLn $ (plName winner) ++ " wins!"

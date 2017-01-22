@@ -111,8 +111,10 @@ makeMove player (GameState{gsLead, gsDirection, gsPenalty, gsDeck, gsUsed, gsMov
                            , gsMoves     = move:gsMoves
                            })
 
-startGame :: Deck -> Int -> ([Hand], GameState)
-startGame deck n = let
+startGame :: Deck -> [Player] -> ([Player], GameState)
+startGame deck players = let
+    n = length players
     hands = take n $ chunksOf 8 deck
+    players' = zipWith (\player hand -> player { plHand = hand }) players hands
     (lead:deck') = drop (n * 8) deck
-    in (hands, GameState (LeadCard lead) id 0 deck' [lead] [])
+    in (players', GameState (LeadCard lead) id 0 deck' [lead] [])
