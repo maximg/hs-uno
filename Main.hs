@@ -4,6 +4,7 @@ import Data.Maybe
 import System.Random
 import Uno.Deck as UD
 import Uno.Game
+import Control.Monad.State
 
 
 -- UI: generic item selector
@@ -89,17 +90,29 @@ playGame (player:rest) gs = do
     putStrLn $ "Deck: " ++ (unwords $ take 10 $ map showCard $ gsDeck gs)
     (player',gs') <- handlePlayer player gs
     if null (plHand player') then do return player'
+                             else do playGame ((gsDirection gs') rest ++ [player']) gs'
+
+playGameSt :: [Player] -> StateT GameState IO Player
+playGameSt (player:rest) = do
+    gs <- get
+    lift $ putStrLn $ unwords $ replicate 30 "-"
+    -- debug
+    lift $ putStrLn $ (plName player) ++ ": " ++ (unwords $ sort $ map showCard $ plHand player)
+    lift $ putStrLn $ "Deck: " ++ (unwords $ take 10 $ map showCard $ gsDeck gs)
+    (player',gs') <- lift $ handlePlayer player gs
+    if null (plHand player') then do return player'
                              else do
-                                -- FIXME: handle direction changes
-                                playGame (rest ++ [player']) gs'
+                                    put gs'
+                                    playGameSt ((gsDirection gs') rest ++ [player'])
+
 
 main = do
     let nPlayers = 2
     putStrLn $ "Starting an Uno game with " ++ (show nPlayers) ++ " players"
     gen <- getStdGen
 
-    let (hand1:hand2:_, gs) = startGame (shuffle UD.deck gen) nPlayers
+    let (hand1:hand2:_, startState) = startGame (shuffle UD.deck gen) nPlayers
     let players = [human "Maxim" hand1, dumbComputer "MacBook" hand2]
 
-    winner <- playGame players gs
-    putStrLn $ "Player " ++ (plName winner) ++ " wins!"
+    winner <- evalStateT (playGameSt players) startState
+    putStrLn $ (plName winner) ++ " wins!"
